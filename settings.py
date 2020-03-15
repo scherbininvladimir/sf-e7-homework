@@ -5,17 +5,21 @@ RESOURCE_METHODS = ['GET', 'POST', 'DELETE']
 ITEM_METHODS = ['GET', 'PATCH', 'DELETE']
 
 DOMAIN = {
-    'user': {
+    'advert': {
         'schema': {
-            'firstname': {
+            'title': {
                 'type': 'string'
             },
-            'lastname': {
-                'type': 'string'
+            'data': {
+                'type': 'date'
             },
-            'phone': {
+            'message': {
+                'type': 'string'
+            }
+            'author': {
                 'type': 'string'
             }
         }
     }
 }
+

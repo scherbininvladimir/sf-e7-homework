@@ -9,11 +9,11 @@ from flask_caching import Cache
 config = {
     "DEBUG": True,      
     "CACHE_TYPE": "redis",
-    "CACHE_REDIS_HOST": "localhost",
+    "CACHE_REDIS_HOST": "redis_e7",
     "CACHE_DEFAULT_TIMEOUT": 300
 }
 
-mongo_client = MongoClient('redis_e7')
+mongo_client = MongoClient('mongo_e7')
 db = mongo_client.e7db
 
 app = Flask(__name__)

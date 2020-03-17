@@ -13,7 +13,7 @@ config = {
     "CACHE_DEFAULT_TIMEOUT": 300
 }
 
-mongo_client = MongoClient('192.168.0.6')
+mongo_client = MongoClient('redis_e7')
 db = mongo_client.e7db
 
 app = Flask(__name__)
@@ -105,5 +105,5 @@ def not_found(error):
     return make_response(jsonify({'error': 'Not found'}), 404)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False, host='0.0.0.0', port=5000)
 

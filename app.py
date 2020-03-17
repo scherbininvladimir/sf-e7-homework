@@ -4,11 +4,20 @@ import datetime
 from flask import Flask, abort, make_response, request, jsonify
 from pymongo import MongoClient
 from bson.objectid import ObjectId
+from flask_caching import Cache
+
+config = {
+    "DEBUG": True,      
+    "CACHE_TYPE": "simple",
+    "CACHE_DEFAULT_TIMEOUT": 300
+}
 
 mongo_client = MongoClient('192.168.0.6')
 db = mongo_client.e7db
 
 app = Flask(__name__)
+app.config.from_mapping(config)
+cache = Cache(app)
 
 def encode(d):
     if "_id" in d:
@@ -17,8 +26,7 @@ def encode(d):
 
 @app.route('/bboard/adverts', methods=['GET'])
 def get_adverts():
-    adverts = [a for a in db.adverts.find()]    
-    adverts = list(map(encode, adverts))
+    adverts = [encode(a) for a in db.adverts.find()]    
     return jsonify({'adverts': adverts})
 
 @app.route('/bboard/adverts/<advert_id>')
@@ -28,13 +36,20 @@ def get_advert(advert_id):
         abort(404)
     return jsonify({'advert': encode(advert)})
 
+@app.route('/bboard/adverts/stat/<advert_id>')
+def get_advert_stat(advert_id):
+    advert = db.adverts.find_one({"_id": ObjectId(advert_id)})
+    if not advert or len(advert) == 0:
+        abort(404)
+    return jsonify({'comments': len(advert['comments']), 'tags': len(advert['tags'])})
+
 @app.route('/bboard/adverts', methods=['POST'])
 def create_advert():
     if not request.json or not 'title' in request.json:
         abort(400)
     if 'tags' in request.json and not isinstance(request.get_json()['tags'], list):
         abort(400)
-    if  'comments' in request.json and isinstance(request.json['comments'], list):
+    if  'comments' in request.json and not isinstance(request.json['comments'], list):
         abort(400)
     advert = {
         'title': request.json['title'],
@@ -58,8 +73,15 @@ def update_task(advert_id):
         advert['tags'].append(request.json.get('tag'))
     if 'comment' in request.json:
         advert['comments'].append(request.json.get('comment'))
-    result = db.adverts.update_one({"_id": ObjectId(advert_id)}, {'$set':{"title": request.json.get('title', advert['title']), "message": request.json.get('message', advert['message'])}})
-    print(result)
+    db.adverts.update_one({
+                            "_id": ObjectId(advert_id)
+                          }, 
+                          {
+                            '$set':{
+                                    "tags": advert['tags'], 
+                                    "comments": advert['comments']
+                            }
+                        })
     advert = db.adverts.find_one({"_id": ObjectId(advert_id)})
     return jsonify({'advert': encode(advert)})
 

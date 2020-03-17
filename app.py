@@ -8,7 +8,8 @@ from flask_caching import Cache
 
 config = {
     "DEBUG": True,      
-    "CACHE_TYPE": "simple",
+    "CACHE_TYPE": "redis",
+    "CACHE_REDIS_HOST": "localhost",
     "CACHE_DEFAULT_TIMEOUT": 300
 }
 
@@ -24,7 +25,13 @@ def encode(d):
         d["_id"] = str(d["_id"])
     return d
 
-@app.route('/bboard/adverts', methods=['GET'])
+@app.route('/tst')
+@cache.cached(timeout=50)
+def get_time():
+    return str(datetime.datetime.now())
+
+@app.route('/bboard/adverts')
+@cache.cached(timeout=50)
 def get_adverts():
     adverts = [encode(a) for a in db.adverts.find()]    
     return jsonify({'adverts': adverts})

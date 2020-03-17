@@ -1,26 +1,9 @@
-# Flask 
 #   https://habr.com/ru/post/246699/
-
-# adverts = [
-#     {
-#         'id': 1,
-#         'title': 'Дом',
-#         'date': '6/Mar/2020',
-#         'message': 'Продам дом в деревне',
-#         'author': 'Иван Иванов'
-#     },
-#     {
-#         'id': 2,
-#         'title': 'Квартира',
-#         'date': '16/Mar/2020',
-#         'message': 'Продам квартиру в Раменском',
-#         'author': 'Петр Петров'
-#     },    
-# ]
 
 import datetime
 from flask import Flask, abort, make_response, request, jsonify
 from pymongo import MongoClient
+from bson.objectid import ObjectId
 
 mongo_client = MongoClient('192.168.0.6')
 db = mongo_client.e7db
@@ -38,50 +21,54 @@ def get_adverts():
     adverts = list(map(encode, adverts))
     return jsonify({'adverts': adverts})
 
-@app.route('/bboard/adverts/<int:advert_id>')
+@app.route('/bboard/adverts/<advert_id>')
 def get_advert(advert_id):
-    advert = list(filter(lambda t: t['id'] == advert_id, adverts))
-    if len(advert) == 0:
+    advert = db.adverts.find_one({"_id": ObjectId(advert_id)})
+    if not advert or len(advert) == 0:
         abort(404)
-    return jsonify({'task': advert[0]})
+    return jsonify({'advert': encode(advert)})
 
 @app.route('/bboard/adverts', methods=['POST'])
 def create_advert():
     if not request.json or not 'title' in request.json:
         abort(400)
+    if 'tags' in request.json and not isinstance(request.get_json()['tags'], list):
+        abort(400)
+    if  'comments' in request.json and isinstance(request.json['comments'], list):
+        abort(400)
     advert = {
         'title': request.json['title'],
         'message': request.json.get('message', ""),
         'author': request.json.get('author', ""),
-        'date': str(datetime.datetime.now())
+        'date': str(datetime.datetime.now()),
+        'tags': request.json.get('tags', []),
+        'comments': request.json.get('comments', [])
     }
-    db.adverts.insert(advert)
-    print(advert)
-    return "advert"
-    # return jsonify({'advert': advert}), 201
+    db.adverts.insert_one(advert)
+    return jsonify({'advert': encode(advert)}), 201
 
-
-
-    
-
-
-@app.route('/bboard/adverts/<int:advert_id>', methods=['PUT'])
+@app.route('/bboard/adverts/<advert_id>', methods=['PUT'])
 def update_task(advert_id):
-    advert = list(filter(lambda t: t['id'] == advert_id, adverts))
+    advert = db.adverts.find_one({"_id": ObjectId(advert_id)})
     if len(advert) == 0:
         abort(404)
     if not request.json:
         abort(400)
-    advert[0]['title'] = request.json.get('title', advert[0]['title'])
-    advert[0]['message'] = request.json.get('message', advert[0]['message'])
-    return jsonify({'advert': advert[0]})
+    if 'tag' in request.json:
+        advert['tags'].append(request.json.get('tag'))
+    if 'comment' in request.json:
+        advert['comments'].append(request.json.get('comment'))
+    result = db.adverts.update_one({"_id": ObjectId(advert_id)}, {'$set':{"title": request.json.get('title', advert['title']), "message": request.json.get('message', advert['message'])}})
+    print(result)
+    advert = db.adverts.find_one({"_id": ObjectId(advert_id)})
+    return jsonify({'advert': encode(advert)})
 
-@app.route('/bboard/adverts/<int:advert_id>', methods=['DELETE'])
-def delete_task(advert_id):
-    advert = list(filter(lambda t: t['id'] == advert_id, adverts))
-    if len(advert) == 0:
+@app.route('/bboard/adverts/<advert_id>', methods=['DELETE'])
+def delete_advert(advert_id):
+    advert = db.adverts.find_one({"_id": ObjectId(advert_id)})
+    if not advert or len(advert) == 0:
         abort(404)
-    adverts.remove(advert[0])
+    db.adverts.delete_one(advert)
     return jsonify({'result': True})
 
 @app.errorhandler(404)

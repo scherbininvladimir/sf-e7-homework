@@ -9,11 +9,12 @@ from flask_caching import Cache
 config = {
     "DEBUG": True,      
     "CACHE_TYPE": "redis",
-    "CACHE_REDIS_HOST": "redis_e7",
-    "CACHE_DEFAULT_TIMEOUT": 300
+    # "CACHE_REDIS_HOST": "redis_e7"
+    "CACHE_REDIS_HOST": "192.168.0.6"
 }
 
-mongo_client = MongoClient('mongo_e7')
+# mongo_client = MongoClient('mongo_e7')
+mongo_client = MongoClient('192.168.0.6')
 db = mongo_client.e7db
 
 app = Flask(__name__)
@@ -25,18 +26,15 @@ def encode(d):
         d["_id"] = str(d["_id"])
     return d
 
-@app.route('/tst')
-@cache.cached(timeout=50)
-def get_time():
-    return str(datetime.datetime.now())
-
 @app.route('/bboard/adverts')
-@cache.cached(timeout=50)
+@cache.cached()
 def get_adverts():
-    adverts = [encode(a) for a in db.adverts.find()]    
+    adverts = [encode(a) for a in db.adverts.find()]  
+    # print(cache.get())  
     return jsonify({'adverts': adverts})
 
 @app.route('/bboard/adverts/<advert_id>')
+@cache.cached()
 def get_advert(advert_id):
     advert = db.adverts.find_one({"_id": ObjectId(advert_id)})
     if not advert or len(advert) == 0:
@@ -44,6 +42,7 @@ def get_advert(advert_id):
     return jsonify({'advert': encode(advert)})
 
 @app.route('/bboard/adverts/stat/<advert_id>')
+@cache.cached()
 def get_advert_stat(advert_id):
     advert = db.adverts.find_one({"_id": ObjectId(advert_id)})
     if not advert or len(advert) == 0:
@@ -92,13 +91,13 @@ def update_task(advert_id):
     advert = db.adverts.find_one({"_id": ObjectId(advert_id)})
     return jsonify({'advert': encode(advert)})
 
-@app.route('/bboard/adverts/<advert_id>', methods=['DELETE'])
-def delete_advert(advert_id):
-    advert = db.adverts.find_one({"_id": ObjectId(advert_id)})
-    if not advert or len(advert) == 0:
-        abort(404)
-    db.adverts.delete_one(advert)
-    return jsonify({'result': True})
+# @app.route('/bboard/adverts/<advert_id>', methods=['DELETE'])
+# def delete_advert(advert_id):
+#     advert = db.adverts.find_one({"_id": ObjectId(advert_id)})
+#     if not advert or len(advert) == 0:
+#         abort(404)
+#     db.adverts.delete_one(advert)
+#     return jsonify({'result': True})
 
 @app.errorhandler(404)
 def not_found(error):

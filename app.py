@@ -1,25 +1,18 @@
 #   https://habr.com/ru/post/246699/
 
 import datetime
+import pickle
 from flask import Flask, abort, make_response, request, jsonify
 from pymongo import MongoClient
 from bson.objectid import ObjectId
-from flask_caching import Cache
+import redis
 
-config = {
-    "DEBUG": True,      
-    "CACHE_TYPE": "redis",
-    # "CACHE_REDIS_HOST": "redis_e7"
-    "CACHE_REDIS_HOST": "192.168.0.6"
-}
+cache = redis.Redis(host="redis_e7")
 
-# mongo_client = MongoClient('mongo_e7')
-mongo_client = MongoClient('192.168.0.6')
+mongo_client = MongoClient('mongo_e7')
 db = mongo_client.e7db
 
 app = Flask(__name__)
-app.config.from_mapping(config)
-cache = Cache(app)
 
 def encode(d):
     if "_id" in d:
@@ -27,24 +20,24 @@ def encode(d):
     return d
 
 @app.route('/bboard/adverts')
-@cache.cached()
 def get_adverts():
-    adverts = [encode(a) for a in db.adverts.find()]  
-    # print(cache.get())  
+    adverts = [encode(a) for a in db.adverts.find()]    
     return jsonify({'adverts': adverts})
 
 @app.route('/bboard/adverts/<advert_id>')
-@cache.cached()
 def get_advert(advert_id):
-    advert = db.adverts.find_one({"_id": ObjectId(advert_id)})
+    if not advert_id in [advert.decode("utf-8") for advert in cache.scan_iter(advert_id)]:
+        abort(404)
+    advert = pickle.loads(cache.get(advert_id))
     if not advert or len(advert) == 0:
         abort(404)
     return jsonify({'advert': encode(advert)})
 
 @app.route('/bboard/adverts/stat/<advert_id>')
-@cache.cached()
 def get_advert_stat(advert_id):
-    advert = db.adverts.find_one({"_id": ObjectId(advert_id)})
+    if not advert_id in [advert.decode("utf-8") for advert in cache.scan_iter(advert_id)]:
+        abort(404)
+    advert = pickle.loads(cache.get(advert_id))
     if not advert or len(advert) == 0:
         abort(404)
     return jsonify({'comments': len(advert['comments']), 'tags': len(advert['tags'])})
@@ -66,6 +59,7 @@ def create_advert():
         'comments': request.json.get('comments', [])
     }
     db.adverts.insert_one(advert)
+    cache.set(str(advert["_id"]), pickle.dumps(encode(advert)))
     return jsonify({'advert': encode(advert)}), 201
 
 @app.route('/bboard/adverts/<advert_id>', methods=['PUT'])
@@ -89,6 +83,7 @@ def update_task(advert_id):
                             }
                         })
     advert = db.adverts.find_one({"_id": ObjectId(advert_id)})
+    cache.set(advert_id, pickle.dumps(encode(advert)))
     return jsonify({'advert': encode(advert)})
 
 # @app.route('/bboard/adverts/<advert_id>', methods=['DELETE'])
@@ -104,5 +99,5 @@ def not_found(error):
     return make_response(jsonify({'error': 'Not found'}), 404)
 
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000)
 

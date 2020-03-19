@@ -26,20 +26,24 @@ def get_adverts():
 
 @app.route('/bboard/adverts/<advert_id>')
 def get_advert(advert_id):
-    if not advert_id in [advert.decode("utf-8") for advert in cache.scan_iter(advert_id)]:
-        abort(404)
-    advert = pickle.loads(cache.get(advert_id))
-    if not advert or len(advert) == 0:
-        abort(404)
+    if advert_id in [advert.decode("utf-8") for advert in cache.scan_iter(advert_id)]:    
+        advert = pickle.loads(cache.get(advert_id))
+    else:
+        advert = db.adverts.find_one({"_id": ObjectId(advert_id)})
+        if not advert or len(advert) == 0:
+            abort(404)
+        cache.set(advert_id, pickle.dumps(encode(advert)))
     return jsonify({'advert': encode(advert)})
 
 @app.route('/bboard/adverts/stat/<advert_id>')
 def get_advert_stat(advert_id):
-    if not advert_id in [advert.decode("utf-8") for advert in cache.scan_iter(advert_id)]:
-        abort(404)
-    advert = pickle.loads(cache.get(advert_id))
-    if not advert or len(advert) == 0:
-        abort(404)
+    if advert_id in [advert.decode("utf-8") for advert in cache.scan_iter(advert_id)]:    
+        advert = pickle.loads(cache.get(advert_id))
+    else:
+        advert = db.adverts.find_one({"_id": ObjectId(advert_id)})
+        if not advert or len(advert) == 0:
+            abort(404)
+        cache.set(advert_id, pickle.dumps(encode(advert)))
     return jsonify({'comments': len(advert['comments']), 'tags': len(advert['tags'])})
 
 @app.route('/bboard/adverts', methods=['POST'])

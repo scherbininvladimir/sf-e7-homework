@@ -4,7 +4,7 @@ import datetime
 import pickle
 from flask import Flask, abort, make_response, request, jsonify
 from pymongo import MongoClient
-from bson.objectid import ObjectId
+from bson.objectid import ObjectId, InvalidId
 import redis
 
 cache = redis.Redis(host="redis_e7")
@@ -29,7 +29,10 @@ def get_advert(advert_id):
     if advert_id in [advert.decode("utf-8") for advert in cache.scan_iter(advert_id)]:    
         advert = pickle.loads(cache.get(advert_id))
     else:
-        advert = db.adverts.find_one({"_id": ObjectId(advert_id)})
+        try:
+            advert = db.adverts.find_one({"_id": ObjectId(advert_id)})
+        except InvalidId:
+            abort(400)
         if not advert or len(advert) == 0:
             abort(404)
         cache.set(advert_id, pickle.dumps(encode(advert)))
@@ -40,7 +43,10 @@ def get_advert_stat(advert_id):
     if advert_id in [advert.decode("utf-8") for advert in cache.scan_iter(advert_id)]:    
         advert = pickle.loads(cache.get(advert_id))
     else:
-        advert = db.adverts.find_one({"_id": ObjectId(advert_id)})
+        try:
+            advert = db.adverts.find_one({"_id": ObjectId(advert_id)})
+        except InvalidId:
+            abort(400)
         if not advert or len(advert) == 0:
             abort(404)
         cache.set(advert_id, pickle.dumps(encode(advert)))
@@ -68,8 +74,11 @@ def create_advert():
 
 @app.route('/bboard/adverts/<advert_id>', methods=['PUT'])
 def update_task(advert_id):
-    advert = db.adverts.find_one({"_id": ObjectId(advert_id)})
-    if len(advert) == 0:
+    try:
+        advert = db.adverts.find_one({"_id": ObjectId(advert_id)})
+    except InvalidId:
+        abort(400)
+    if not advert or len(advert) == 0:
         abort(404)
     if not request.json:
         abort(400)
